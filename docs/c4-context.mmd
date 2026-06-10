@@ -1,0 +1,45 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '22px', 'primaryFontColor': '#1f2937', 'primaryBorderColor': '#0ea5e9', 'primaryTextColor': '#1f2937', 'lineColor': '#475569', 'tertiaryColor': '#f0f9ff'}, 'flowchart': {'nodeSpacing': 120, 'rankSpacing': 150, 'padding': 40}}}%%
+flowchart TB
+  subgraph User["End User (Browser)"]
+    Anonymous["Anonymous Visitor
+    Tourist / Traveler"]
+  end
+
+  subgraph HK["Hidden Karnataka Web App"]
+    direction TB
+    NextJS["Next.js 16.2.7 SPA
+    src/app/page.tsx"]
+    MapComp["GoogleKarnatakaMap
+    ~1500 lines"]
+    ImageSlider["ImageSlider
+    carousel + lightbox"]
+    Nearby["NearbyPlaces
+    Places API search"]
+  end
+
+  subgraph External["External Systems"]
+    GMapsAPI["Google Maps JS API
+    tiles - markers - GeoJSON
+    Street View - Elevation"]
+    PlacesAPI["Google Places API
+    nearbySearch
+    5km radius"]
+    LocalStorage["Browser localStorage
+    user - reviews - favorites
+    collections - searches"]
+  end
+
+  Anonymous -->|"HTTPS"| NextJS
+  NextJS --> MapComp
+  MapComp -->|"Renders"| ImageSlider
+  MapComp -->|"Calls"| Nearby
+  MapComp -->|"Google object"| GMapsAPI
+  Nearby -->|"REST"| PlacesAPI
+  MapComp -->|"Read/write"| LocalStorage
+
+  classDef box fill:#f0f9ff,stroke:#0ea5e9,stroke-width:2px
+  classDef external fill:#fef2f2,stroke:#ef4444,stroke-width:2px
+  classDef system fill:#f8fafc,stroke:#64748b,stroke-width:1px
+  class HK,NextJS,MapComp,ImageSlider,Nearby box
+  class External,GMapsAPI,PlacesAPI,LocalStorage external
+  class User system

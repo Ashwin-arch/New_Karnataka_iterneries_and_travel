@@ -1,0 +1,48 @@
+Here's the full breakdown of how this works:
+Project Structure
+amp_page_feature/
+├── public/
+│   └── karnataka-GeoJSON.json   # District boundary data (229KB)
+├── src/
+│   ├── app/
+│   │   ├── globals.css           # Tailwind + base styles
+│   │   ├── layout.tsx            # Root layout (metadata, fonts)
+│   │   └── page.tsx              # Entry point — renders KarnatakaMap
+│   └── components/
+│       └── karnataka-map.tsx     # The entire map component (~480 lines)
+The Core Concept
+No map library — pure SVG. We take the district boundary coordinates (lat/lon pairs from GeoJSON) and project them onto an SVG canvas using a custom Mercator projection. Every district becomes an SVG <path>.
+Key Parts Explained
+1. GeoJSON → SVG projection (project function, line ~38)
+GeoJSON stores coordinates as [longitude, latitude]. SVG uses [x, y] where y goes downward (inverted from latitude). The project() function:
+- Calculates the bounding box of all districts
+- Determines a scale factor that fits the map into the SVG viewport (with 40px padding)
+- Converts lon → x and lat → y (inverted)
+2. Path rendering (buildPathData, line ~99)
+GeoJSON has two geometry types:
+- Polygon — single shape (e.g. Bangalore Urban)
+- MultiPolygon — disconnected pieces (e.g. districts with islands)
+The function converts each ring of coordinates into an SVG path "M x,y x,y x,y Z" string.
+3. Zoom & Pan (newly added)
+- State: scale (0.5×–10×) and translate (x, y offset)
+- SVG transform: <g transform="translate(tx,ty) scale(s)"> wraps all paths
+- Mouse wheel: Zooms toward the cursor position using the formula:
+newTx = mouseX - (newScale / oldScale) * (mouseX - oldTx)
+- Drag to pan: Tracks mousedown → mousemove → mouseup and adjusts translate offset
+- Buttons: Zoom in, zoom out, reset (top-right corner) with current zoom percentage
+4. Interactivity
+- Hover → onMouseEnter/Leave sets hoveredDistrict, changes fill color
+- Click → onClick sets selectedDistrict, slides in the sidebar
+- Click background → deselects district
+5. UI States
+The component handles 4 states:
+1. Loading — spinner with "Loading Map Data..."
+2. Error — card with error message + Retry button
+3. Empty — sidebar shows "Select a district" prompt
+4. Data loaded — interactive SVG map
+6. Sidebar
+When a district is clicked:
+- Shows district name, state code, district code
+- Scrollable table of all GeoJSON properties
+- Info card with geographic context
+Run it: npm run dev → http://localhost:3000

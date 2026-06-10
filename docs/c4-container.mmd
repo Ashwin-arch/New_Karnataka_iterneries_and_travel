@@ -1,0 +1,96 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '22px', 'primaryFontColor': '#1f2937', 'primaryBorderColor': '#0ea5e9', 'primaryTextColor': '#1f2937', 'lineColor': '#475569', 'tertiaryColor': '#f0f9ff'}}}%%
+flowchart TB
+  subgraph Browser["Browser - Client Side"]
+    direction TB
+    
+    subgraph App["Next.js App (Static SPA)"]
+      Page["page.tsx
+      Entry Point"]
+      Layout["layout.tsx
+      Root Layout"]
+      CSS["globals.css
+      Tailwind v4 + Animations"]
+    end
+
+    subgraph Components["React Components"]
+      MainMap["GoogleKarnatakaMap
+      - Full-screen Google Map
+      - Collapsible sidebar w/ place list
+      - Search + Geocoding
+      - Marker clustering (zoom < 9)
+      - District GeoJSON overlay
+      - Heatmap / Traffic / Transit / Bicycling
+      - Street View modal
+      - Elevation fetch
+      - Directions (DRIVING/WALKING/BICYCLING)
+      - Auth modal (localStorage)
+      - Reviews system
+      - Favorites + Collections
+      - Submit new place + Admin panel"]
+
+      ImgSlider["ImageSlider
+      - Auto-advance carousel (4s)
+      - Touch swipe + keyboard nav
+      - Fullscreen lightbox
+      - Gap between auto/manual
+      - Lazy loading all images"]
+
+      NearbyPlaces["NearbyPlaces
+      - 3 tabs: Eateries/Hotels/Stays
+      - 5km Places API search
+      - Star rating + open/closed
+      - Error: API blocked / no results"]
+    end
+
+    subgraph DataLayer["Data Layer"]
+      StaticData["karnataka-locations.ts
+      23 static locations
+      { id, name, lat, lng, category,
+        description, images, metadata }"]
+
+      LocalStorage["localStorage
+      - user (auth simulation)
+      - reviews[]
+      - pending_places[]
+      - recent_searches[]"]
+    end
+  end
+
+  subgraph ExternalAPIs["Google APIs (external)"]
+    GMaps["Maps JS API
+    libraries=places,visualization,geometry"]
+
+    GPlaces["Places API
+    nearbySearch"]
+
+    GElev["Elevation API
+    getElevationForLocations"]
+
+    GStreet["Street View API
+    StreetViewPanorama"]
+
+    GDir["Directions API
+    DirectionsService + Renderer"]
+  end
+
+  Page --> Layout
+  Page --> MainMap
+  MainMap --> ImgSlider
+  MainMap --> NearbyPlaces
+  MainMap --> StaticData
+  MainMap --> LocalStorage
+  MainMap --> GMaps
+  MainMap --> GPlaces
+  MainMap --> GElev
+  MainMap --> GStreet
+  MainMap --> GDir
+  NearbyPlaces --> GPlaces
+
+  classDef app fill:#f0f9ff,stroke:#0ea5e9,stroke-width:2px
+  classDef comp fill:#e0f2fe,stroke:#38bdf8,stroke-width:1px
+  classDef data fill:#fefce8,stroke:#eab308,stroke-width:1px
+  classDef external fill:#fef2f2,stroke:#ef4444,stroke-width:2px
+  class App,Page,Layout,CSS app
+  class MainMap,ImgSlider,NearbyPlaces comp
+  class StaticData,LocalStorage data
+  class ExternalAPIs,GMaps,GPlaces,GElev,GStreet,GDir external

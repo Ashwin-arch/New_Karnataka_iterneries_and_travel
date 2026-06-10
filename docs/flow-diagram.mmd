@@ -1,0 +1,62 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '24px', 'primaryFontColor': '#1f2937', 'primaryBorderColor': '#0ea5e9', 'primaryTextColor': '#1f2937', 'lineColor': '#475569', 'tertiaryColor': '#f0f9ff'}}}%%
+flowchart TB
+  subgraph Init["1. Initialization Flow"]
+    A1["User visits page (page.tsx)"] --> A2["Check NEXT_PUBLIC_GOOGLE_MAPS_API_KEY"]
+    A2 -->|"Missing"| A3["Show error card: API Key Required"]
+    A2 -->|"Present"| A4["Create script tag with callback"]
+    A4 --> A5["window.__googleMapsCallback fires"]
+    A5 --> A6["initMap() called"]
+    A6 --> A7["new google.maps.Map(mapRef)"]
+    A7 --> A8["Load GeoJSON district boundaries"]
+    A8 --> A9["Add 23 SVG pin markers"]
+    A9 --> A10["Run clustering (zoom < 9)"]
+  end
+
+  subgraph Interactive["2. User Interaction Flow"]
+    B1["User clicks place (sidebar / marker / search)"]
+    B1 --> B2["handlePlaceClick(loc)"]
+    B2 --> B3["Pan map to location"]
+    B3 --> B4["Open bottom sheet detail panel"]
+    B4 --> B5["Load ImageSlider with location photos"]
+    B4 --> B6["Fetch elevation data"]
+    B4 --> B7["Query NearbyPlaces (5km radius)"]
+    B4 --> B8["Show reviews from localStorage"]
+    B4 --> B9["Track in recent searches"]
+  end
+
+  subgraph Layers["3. Layer Toggle Flow"]
+    C1["User clicks layer button"]
+    C1 --> C2{"Layer type?"}
+    C2 -->|"Heatmap"| C3["toggleHeatmap() - HeatmapLayer"]
+    C2 -->|"Traffic"| C4["toggleTraffic() - TrafficLayer"]
+    C2 -->|"Transit"| C5["toggleTransit() - TransitLayer"]
+    C2 -->|"Bicycling"| C6["toggleBicycling() - BicyclingLayer"]
+    C3 --> C7["setMap(map) / setMap(null)"]
+    C4 --> C7
+    C5 --> C7
+    C6 --> C7
+  end
+
+  subgraph Community["4. Community Features Flow"]
+    D1["User signs in (name/email)"]
+    D1 --> D2["localStorage.setItem(user, ...)"]
+    D2 --> D3["Toggle favorites"]
+    D3 --> D4["Update user.favorites[]"]
+    D2 --> D5["Add review (star rating)"]
+    D5 --> D6["localStorage reviews[] + rerender"]
+    D2 --> D7["Create collections"]
+    D7 --> D8["Add/remove places from collections"]
+    D2 --> D9["Submit new place"]
+    D9 --> D10["localStorage pending_places[]"]
+    D10 --> D11["Admin approves - add to map"]
+  end
+
+  Init --> Interactive
+  Interactive --> Layers
+  Interactive --> Community
+
+  classDef init fill:#e0f2fe,stroke:#0ea5e9,stroke-width:1px
+  classDef interact fill:#f0fdf4,stroke:#22c55e,stroke-width:1px
+  classDef layers fill:#fefce8,stroke:#eab308,stroke-width:1px
+  classDef community fill:#fdf2f8,stroke:#ec4899,stroke-width:1px
+  class Init,Interactive,Layers,Community init
