@@ -50,3 +50,6 @@ maps.docx
 
 # tools
 gen_docx.py
+
+# Local Netlify folder
+.netlify

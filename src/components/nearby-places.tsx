@@ -21,6 +21,7 @@ interface NearbyPlacesProps {
   lat: number
   lng: number
   onPlacesChange?: (places: NearbyPlaceResult[]) => void
+  darkMode?: boolean
 }
 
 const PLACE_TYPES: { type: PlaceType; label: string; icon: typeof UtensilsCrossed }[] = [
@@ -35,7 +36,7 @@ const TYPE_ICONS: Record<PlaceType, string> = {
   lodging: "#06b6d4",
 }
 
-function StarRating({ rating }: { rating?: number }) {
+function StarRating({ rating, darkMode }: { rating?: number; darkMode?: boolean }) {
   if (!rating) return null
   return (
     <div className="flex items-center gap-0.5">
@@ -43,15 +44,15 @@ function StarRating({ rating }: { rating?: number }) {
         <Star
           key={i}
           size={10}
-          className={i < Math.round(rating) ? "text-amber-400 fill-amber-400" : "text-slate-200"}
+          className={i < Math.round(rating) ? "text-amber-400 fill-amber-400" : darkMode ? "text-slate-600" : "text-slate-200"}
         />
       ))}
-      <span className="text-[10px] text-slate-400 ml-1">{rating.toFixed(1)}</span>
+      <span className={`text-[10px] ${darkMode ? "text-slate-500" : "text-slate-400"} ml-1`}>{rating.toFixed(1)}</span>
     </div>
   )
 }
 
-export default function NearbyPlaces({ lat, lng, onPlacesChange }: NearbyPlacesProps) {
+export default function NearbyPlaces({ lat, lng, onPlacesChange, darkMode }: NearbyPlacesProps) {
   const [activeTab, setActiveTab] = useState<PlaceType>("restaurant")
   const [places, setPlaces] = useState<NearbyPlaceResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -121,17 +122,27 @@ export default function NearbyPlaces({ lat, lng, onPlacesChange }: NearbyPlacesP
     queueMicrotask(() => searchPlaces(activeTab))
   }, [activeTab, searchPlaces])
 
+  const cardBg = darkMode ? "bg-slate-700/50" : "bg-white"
+  const borderClr = darkMode ? "border-slate-600" : "border-slate-100"
+  const textColor = darkMode ? "text-slate-200" : "text-slate-800"
+  const subText = darkMode ? "text-slate-400" : "text-slate-400"
+  const hoverBg = darkMode ? "hover:bg-slate-700" : "hover:bg-slate-50"
+
   return (
-    <div className="bg-white rounded-xl border border-slate-100 overflow-hidden shadow-sm">
-      <div className="flex border-b border-slate-100">
+    <div className={`${cardBg} rounded-xl border ${borderClr} overflow-hidden shadow-sm`}>
+      <div className={`flex border-b ${borderClr}`}>
         {PLACE_TYPES.map(({ type, label, icon: Icon }) => (
           <button
             key={type}
             onClick={() => setActiveTab(type)}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-all ${
               activeTab === type
-                ? "text-slate-900 bg-white border-b-2 border-sky-500"
-                : "text-slate-400 hover:text-slate-600 bg-slate-50/50 hover:bg-slate-100/50"
+                ? darkMode
+                  ? "text-slate-100 bg-slate-700 border-b-2 border-sky-500"
+                  : "text-slate-900 bg-white border-b-2 border-sky-500"
+                : darkMode
+                  ? "text-slate-500 bg-slate-800/50 hover:text-slate-300 hover:bg-slate-700"
+                  : "text-slate-400 bg-slate-50/50 hover:text-slate-600 hover:bg-slate-100/50"
             }`}
           >
             <Icon size={13} />
@@ -144,28 +155,28 @@ export default function NearbyPlaces({ lat, lng, onPlacesChange }: NearbyPlacesP
         {loading ? (
           <div className="flex flex-col items-center justify-center py-6 gap-2">
             <Loader2 size={20} className="animate-spin text-sky-500" />
-            <span className="text-[10px] text-slate-400 animate-pulse">Searching nearby places...</span>
+            <span className={`text-[10px] animate-pulse ${darkMode ? "text-slate-500" : "text-slate-400"}`}>Searching nearby places...</span>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center py-4 gap-2">
             <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             </div>
-            <p className="text-xs text-slate-400 text-center">{error}</p>
+            <p className={`text-xs text-center ${darkMode ? "text-slate-400" : "text-slate-400"}`}>{error}</p>
           </div>
         ) : places.length === 0 ? (
           <div className="flex flex-col items-center py-4 gap-2">
-            <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center">
+            <div className={`w-8 h-8 rounded-full ${darkMode ? "bg-slate-700" : "bg-slate-50"} flex items-center justify-center`}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             </div>
-            <p className="text-xs text-slate-400 text-center">No {activeTab === "restaurant" ? "eateries" : activeTab === "hotel" ? "hotels" : "stays"} found nearby</p>
+            <p className={`text-xs text-center ${darkMode ? "text-slate-400" : "text-slate-400"}`}>No {activeTab === "restaurant" ? "eateries" : activeTab === "hotel" ? "hotels" : "stays"} found nearby</p>
           </div>
         ) : (
           <div className="space-y-1.5">
             {places.map((place, i) => (
               <div
                 key={place.placeId}
-                className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-slate-50 transition-all hover:shadow-sm"
+                className={`flex items-start gap-2.5 p-2 rounded-lg ${hoverBg} transition-all`}
                 style={{ animation: `fadeInUp 0.3s ease-out ${i * 50}ms both` }}
               >
                 <div
@@ -175,31 +186,30 @@ export default function NearbyPlaces({ lat, lng, onPlacesChange }: NearbyPlacesP
                   {i + 1}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-slate-800 truncate">
+                  <p className={`text-xs font-semibold ${darkMode ? "text-slate-200" : "text-slate-800"} truncate`}>
                     {place.name}
                   </p>
-                  <p className="text-[10px] text-slate-400 truncate mt-0.5">
+                  <p className={`text-[10px] ${darkMode ? "text-slate-500" : "text-slate-400"} truncate mt-0.5`}>
                     {place.vicinity}
                   </p>
                   <div className="flex items-center gap-2 mt-1">
-                    <StarRating rating={place.rating} />
+                    <StarRating rating={place.rating} darkMode={darkMode} />
                     {place.openNow !== undefined && (
-                      <span className={`flex items-center gap-1 text-[9px] font-medium ${place.openNow ? "text-green-600" : "text-slate-400"}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${place.openNow ? "bg-green-500 animate-[pulse-dot_2s_ease-in-out_infinite]" : "bg-slate-300"}`} />
+                      <span className={`flex items-center gap-1 text-[9px] font-medium ${place.openNow ? "text-green-600" : darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${place.openNow ? "bg-green-500" : darkMode ? "bg-slate-600" : "bg-slate-300"}`} />
                         {place.openNow ? "Open" : "Closed"}
                       </span>
                     )}
                   </div>
                 </div>
-                <a
-                  href={`https://www.google.com/maps/place/?q=place_id:${place.placeId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-1.5 hover:bg-sky-50 rounded-lg text-slate-300 hover:text-sky-500 transition-colors flex-shrink-0 mt-0.5"
-                  title="Open in Google Maps"
+                <span
+                  className={`p-1.5 rounded-lg flex-shrink-0 mt-0.5 ${
+                    darkMode ? "text-slate-600" : "text-slate-300"
+                  }`}
+                  title="Place info from Google Maps"
                 >
                   <ExternalLink size={11} />
-                </a>
+                </span>
               </div>
             ))}
           </div>

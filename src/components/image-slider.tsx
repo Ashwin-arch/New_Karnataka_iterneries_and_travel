@@ -8,9 +8,12 @@ interface ImageSliderProps {
   alt: string
 }
 
+const BROKEN_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect fill='%23f1f5f9' width='400' height='300'/%3E%3Ctext fill='%2394a3b8' font-family='system-ui' font-size='14' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3EImage not available%3C/text%3E%3C/svg%3E"
+
 export default function ImageSlider({ images, alt }: ImageSliderProps) {
   const [current, setCurrent] = useState(0)
   const [fullscreen, setFullscreen] = useState(false)
+  const [errored, setErrored] = useState<Set<number>>(new Set())
   const touchStart = useRef(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -38,6 +41,7 @@ export default function ImageSlider({ images, alt }: ImageSliderProps) {
   }, [fullscreen])
 
   useEffect(() => {
+    if (!fullscreen) return
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setFullscreen(false)
       if (e.key === "ArrowLeft") prev()
@@ -45,11 +49,19 @@ export default function ImageSlider({ images, alt }: ImageSliderProps) {
     }
     window.addEventListener("keydown", handleKey)
     return () => window.removeEventListener("keydown", handleKey)
-  }, [prev, next])
+  }, [fullscreen, prev, next])
 
   if (images.length === 0) return null
 
+  const allBroken = images.length > 0 && errored.size === images.length
+
   const sliderContent = (isFullscreen: boolean) => (
+    allBroken ? (
+      <div className={`flex flex-col items-center justify-center ${isFullscreen ? "w-full h-full" : "w-full aspect-[4/3]"} bg-slate-100 gap-2`}>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+        <p className="text-xs text-slate-400">No photos available</p>
+      </div>
+    ) : (
     <div className={`relative ${isFullscreen ? "w-full h-full" : "w-full aspect-[4/3]"} overflow-hidden bg-slate-100`}>
       {images.map((src, i) => (
         <div
@@ -59,11 +71,12 @@ export default function ImageSlider({ images, alt }: ImageSliderProps) {
           } ${i < current ? "-translate-x-8" : ""}`}
         >
           <img
-            src={src}
+            src={errored.has(i) ? BROKEN_IMG : src}
             alt={`${alt} ${i + 1}`}
             className={`w-full h-full ${isFullscreen ? "object-contain" : "object-cover"}`}
             loading={i === 0 ? "eager" : "lazy"}
             fetchPriority={i === 0 ? "high" : "auto"}
+            onError={() => setErrored((prev) => new Set(prev).add(i))}
           />
         </div>
       ))}
@@ -110,6 +123,7 @@ export default function ImageSlider({ images, alt }: ImageSliderProps) {
         ))}
       </div>
     </div>
+    )
   )
 
   return (
