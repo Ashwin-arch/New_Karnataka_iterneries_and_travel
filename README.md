@@ -1,6 +1,10 @@
 # Hidden Karnataka — Travel Guide
 
+[![Netlify Status](https://api.netlify.com/api/v1/badges/placeholder/deploy-status)](https://amp-karnataka-nav.netlify.app)
+
 An interactive travel guide showcasing 23 offbeat destinations in Karnataka, India. Built with Next.js 16, Google Maps API, and Tailwind CSS v4.
+
+**Live demo:** [amp-karnataka-nav.netlify.app](https://amp-karnataka-nav.netlify.app)
 
 ## Prerequisites
 
