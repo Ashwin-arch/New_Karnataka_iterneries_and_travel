@@ -52,6 +52,23 @@ export interface SavedRoute {
   date: string
 }
 
+export interface SavedTrip {
+  id: string
+  name: string
+  startName: string
+  startLat: number
+  startLng: number
+  destName: string
+  destLat: number
+  destLng: number
+  distance: string
+  duration: string
+  pois: Array<{ name: string; lat: number; lng: number; type: string; vicinity: string; rating?: number }>
+  date: string
+  weather: { temp: number; condition: string; icon: string } | null
+  weatherUpdatedAt: string
+}
+
 export interface Report {
   id: string
   userId: string

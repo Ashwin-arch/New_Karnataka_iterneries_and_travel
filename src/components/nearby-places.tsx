@@ -1,7 +1,9 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { Loader2, UtensilsCrossed, Hotel, Building2, Star, ExternalLink } from "lucide-react"
+import {
+  Loader2, UtensilsCrossed, Hotel, Building2, Star, Navigation, MapPin, ChevronRight,
+} from "lucide-react"
 
 type PlaceType = "restaurant" | "hotel" | "lodging"
 
@@ -24,30 +26,147 @@ interface NearbyPlacesProps {
   darkMode?: boolean
 }
 
-const PLACE_TYPES: { type: PlaceType; label: string; icon: typeof UtensilsCrossed }[] = [
-  { type: "restaurant", label: "Eateries", icon: UtensilsCrossed },
-  { type: "hotel", label: "Hotels", icon: Hotel },
-  { type: "lodging", label: "Stays", icon: Building2 },
+const PLACE_TYPES: { type: PlaceType; label: string; icon: typeof UtensilsCrossed; plural: string }[] = [
+  { type: "restaurant", label: "Eateries", icon: UtensilsCrossed, plural: "eateries" },
+  { type: "hotel", label: "Hotels", icon: Hotel, plural: "hotels" },
+  { type: "lodging", label: "Stays", icon: Building2, plural: "stays" },
 ]
 
-const TYPE_ICONS: Record<PlaceType, string> = {
-  restaurant: "#f97316",
-  hotel: "#8b5cf6",
-  lodging: "#06b6d4",
+const TYPE_STYLES: Record<PlaceType, {
+  bg: string; gradient: string; text: string; ring: string;
+  dot: string; glow: string; iconBg: string;
+}> = {
+  restaurant: {
+    bg: "#f97316", text: "text-orange-600",
+    gradient: "from-orange-500 to-amber-500",
+    ring: "ring-orange-200", dot: "bg-orange-500",
+    glow: "0 0 12px rgba(249,115,22,0.25)",
+    iconBg: "bg-orange-50",
+  },
+  hotel: {
+    bg: "#8b5cf6", text: "text-purple-600",
+    gradient: "from-purple-500 to-violet-500",
+    ring: "ring-purple-200", dot: "bg-purple-500",
+    glow: "0 0 12px rgba(139,92,246,0.25)",
+    iconBg: "bg-purple-50",
+  },
+  lodging: {
+    bg: "#06b6d4", text: "text-cyan-600",
+    gradient: "from-cyan-500 to-teal-400",
+    ring: "ring-cyan-200", dot: "bg-cyan-500",
+    glow: "0 0 12px rgba(6,182,212,0.25)",
+    iconBg: "bg-cyan-50",
+  },
 }
 
 function StarRating({ rating, darkMode }: { rating?: number; darkMode?: boolean }) {
   if (!rating) return null
+  const full = Math.floor(rating)
+  const hasHalf = rating - full >= 0.25 && rating - full < 0.75
+  const empty = 5 - full - (hasHalf ? 1 : 0)
   return (
     <div className="flex items-center gap-0.5">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <Star
-          key={i}
-          size={10}
-          className={i < Math.round(rating) ? "text-amber-400 fill-amber-400" : darkMode ? "text-slate-600" : "text-slate-200"}
-        />
+      {Array.from({ length: full }).map((_, i) => (
+        <Star key={`f${i}`} size={10} className="text-amber-400 fill-amber-400" />
       ))}
-      <span className={`text-[10px] ${darkMode ? "text-slate-500" : "text-slate-400"} ml-1`}>{rating.toFixed(1)}</span>
+      {hasHalf && (
+        <span className="relative">
+          <Star size={10} className="text-slate-200" />
+          <span className="absolute inset-0 overflow-hidden" style={{ width: "50%" }}>
+            <Star size={10} className="text-amber-400 fill-amber-400" />
+          </span>
+        </span>
+      )}
+      {Array.from({ length: empty }).map((_, i) => (
+        <Star key={`e${i}`} size={10} className={darkMode ? "text-slate-600" : "text-slate-200"} />
+      ))}
+      <span className={`text-[10px] font-semibold ml-1 ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+        {rating.toFixed(1)}
+      </span>
+    </div>
+  )
+}
+
+function PlaceCard({ place, index, darkMode = false, onDirections }: {
+  place: NearbyPlaceResult; index: number; darkMode?: boolean;
+  onDirections: (lat: number, lng: number) => void;
+}) {
+  const ts = TYPE_STYLES[place.type]
+  const bg = darkMode ? "bg-slate-800/60" : "bg-white"
+  const border = darkMode ? "border-slate-700/50" : "border-slate-100"
+  const textColor = darkMode ? "text-slate-200" : "text-slate-800"
+  const subText = darkMode ? "text-slate-400" : "text-slate-500"
+
+  return (
+    <div
+      className={`group relative rounded-2xl border ${border} ${bg} overflow-hidden transition-all duration-300 hover:shadow-xl active:scale-[0.98]`}
+      style={{
+        animation: `cardSlideUp 0.4s ease-out ${index * 60}ms both`,
+        borderLeftWidth: 3,
+        borderLeftColor: ts.bg,
+      }}
+    >
+      <div className="p-3.5 sm:p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1 flex items-start gap-3">
+            <span
+              className={`relative flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-white text-xs sm:text-sm font-extrabold shadow-lg transition-transform duration-300 group-hover:scale-110`}
+              style={{ background: `linear-gradient(135deg, ${ts.bg}, ${ts.bg}dd)`, boxShadow: ts.glow }}
+            >
+              {index + 1}
+            </span>
+            <div className="min-w-0 flex-1 pt-0.5">
+              <h4 className={`text-sm sm:text-base font-bold ${textColor} leading-tight truncate`}>
+                {place.name}
+              </h4>
+              <p className={`text-[11px] sm:text-xs ${subText} truncate mt-0.5 flex items-center gap-1`}>
+                <MapPin size={10} className="flex-shrink-0 opacity-60" />
+                {place.vicinity}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {place.openNow !== undefined && (
+              <span className={`flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold px-2 sm:px-2.5 py-1 rounded-full transition-all ${
+                place.openNow
+                  ? darkMode
+                    ? "bg-emerald-900/30 text-emerald-400 ring-1 ring-emerald-800/30"
+                    : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/50"
+                  : darkMode
+                    ? "bg-slate-700/50 text-slate-400 ring-1 ring-slate-600/30"
+                    : "bg-slate-100 text-slate-500 ring-1 ring-slate-200/50"
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  place.openNow ? "bg-emerald-500 animate-pulse" : darkMode ? "bg-slate-500" : "bg-slate-300"
+                }`} />
+                {place.openNow ? "Open" : "Closed"}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 mt-2.5 sm:mt-3 pl-0 sm:pl-[44px]">
+          <StarRating rating={place.rating} darkMode={darkMode} />
+          <button
+            onClick={() => onDirections(place.lat, place.lng)}
+            className={`flex items-center justify-center gap-1.5 text-[11px] sm:text-xs font-semibold px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl transition-all duration-200 ${
+              darkMode
+                ? "bg-sky-900/30 text-sky-400 hover:bg-sky-900/50 hover:text-sky-300 active:bg-sky-900/60"
+                : "bg-gradient-to-r from-sky-50 to-blue-50 text-sky-600 hover:from-sky-100 hover:to-blue-100 active:from-sky-200 active:to-blue-200"
+            }`}
+          >
+            <Navigation size={12} className="flex-shrink-0" />
+            <span>Directions</span>
+            <ChevronRight size={10} className="opacity-50 -ml-0.5" />
+          </button>
+        </div>
+      </div>
+
+      <div
+        className="absolute inset-x-0 bottom-0 h-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+        style={{ background: `linear-gradient(90deg, ${ts.bg}, transparent)` }}
+      />
     </div>
   )
 }
@@ -122,99 +241,92 @@ export default function NearbyPlaces({ lat, lng, onPlacesChange, darkMode }: Nea
     queueMicrotask(() => searchPlaces(activeTab))
   }, [activeTab, searchPlaces])
 
-  const cardBg = darkMode ? "bg-slate-700/50" : "bg-white"
-  const borderClr = darkMode ? "border-slate-600" : "border-slate-100"
-  const textColor = darkMode ? "text-slate-200" : "text-slate-800"
-  const subText = darkMode ? "text-slate-400" : "text-slate-400"
-  const hoverBg = darkMode ? "hover:bg-slate-700" : "hover:bg-slate-50"
+  const ts = TYPE_STYLES[activeTab]
+  const cardBg = darkMode ? "bg-slate-800/80" : "bg-white"
+  const borderClr = darkMode ? "border-slate-700" : "border-slate-200"
+
+  function openDirections(destLat: number, destLng: number) {
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}`, "_blank")
+  }
 
   return (
-    <div className={`${cardBg} rounded-xl border ${borderClr} overflow-hidden shadow-sm`}>
-      <div className={`flex border-b ${borderClr}`}>
-        {PLACE_TYPES.map(({ type, label, icon: Icon }) => (
-          <button
-            key={type}
-            onClick={() => setActiveTab(type)}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-all ${
-              activeTab === type
-                ? darkMode
-                  ? "text-slate-100 bg-slate-700 border-b-2 border-sky-500"
-                  : "text-slate-900 bg-white border-b-2 border-sky-500"
-                : darkMode
-                  ? "text-slate-500 bg-slate-800/50 hover:text-slate-300 hover:bg-slate-700"
-                  : "text-slate-400 bg-slate-50/50 hover:text-slate-600 hover:bg-slate-100/50"
-            }`}
-          >
-            <Icon size={13} />
-            {label}
-          </button>
-        ))}
+    <div className={`${cardBg} rounded-2xl border ${borderClr} overflow-hidden shadow-sm`}>
+      <div className={`flex border-b ${borderClr} p-1.5 gap-1`}>
+        {PLACE_TYPES.map(({ type, label, icon: Icon }) => {
+          const active = activeTab === type
+          const t = TYPE_STYLES[type]
+          return (
+            <button
+              key={type}
+              onClick={() => setActiveTab(type)}
+              className={`relative flex-1 flex items-center justify-center gap-1.5 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm font-semibold transition-all duration-200 ${
+                active
+                  ? "text-white shadow-lg"
+                  : darkMode
+                    ? "text-slate-500 hover:text-slate-300 hover:bg-slate-700/50"
+                    : "text-slate-400 hover:text-slate-600 hover:bg-slate-100/50"
+              }`}
+              style={active ? { background: `linear-gradient(135deg, ${t.bg}, ${t.bg}dd)`, boxShadow: `0 2px 12px ${t.bg}44` } : {}}
+            >
+              <Icon size={active ? 14 : 12} />
+              <span className="hidden sm:inline">{label}</span>
+              <span className="sm:hidden">{label.slice(0, 4)}</span>
+            </button>
+          )
+        })}
       </div>
 
-      <div className="p-3">
+      <div className="p-2 sm:p-3">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-6 gap-2">
-            <Loader2 size={20} className="animate-spin text-sky-500" />
-            <span className={`text-[10px] animate-pulse ${darkMode ? "text-slate-500" : "text-slate-400"}`}>Searching nearby places...</span>
+          <div className="flex flex-col items-center justify-center py-8 sm:py-10 gap-3">
+            <div className="relative">
+              <Loader2 size={28} className="animate-spin" style={{ color: ts.bg }} />
+              <span className="absolute inset-0 animate-ping rounded-full opacity-20" style={{ backgroundColor: ts.bg }} />
+            </div>
+            <span className={`text-xs animate-pulse font-medium ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+              Finding nearby places...
+            </span>
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center py-4 gap-2">
-            <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <div className="flex flex-col items-center py-6 sm:py-8 gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center ring-1 ring-amber-200/50">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             </div>
-            <p className={`text-xs text-center ${darkMode ? "text-slate-400" : "text-slate-400"}`}>{error}</p>
+            <p className={`text-xs sm:text-sm text-center font-medium ${darkMode ? "text-slate-400" : "text-slate-500"}`}>{error}</p>
           </div>
         ) : places.length === 0 ? (
-          <div className="flex flex-col items-center py-4 gap-2">
-            <div className={`w-8 h-8 rounded-full ${darkMode ? "bg-slate-700" : "bg-slate-50"} flex items-center justify-center`}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <div className="flex flex-col items-center py-6 sm:py-8 gap-3">
+            <div className={`w-12 h-12 rounded-2xl ${darkMode ? "bg-slate-700/50" : "bg-slate-50"} flex items-center justify-center ring-1 ${darkMode ? "ring-slate-600/30" : "ring-slate-200/50"}`}>
+              <MapPin size={20} className="text-slate-300" />
             </div>
-            <p className={`text-xs text-center ${darkMode ? "text-slate-400" : "text-slate-400"}`}>No {activeTab === "restaurant" ? "eateries" : activeTab === "hotel" ? "hotels" : "stays"} found nearby</p>
+            <p className={`text-xs sm:text-sm text-center font-medium ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+              No {PLACE_TYPES.find((p) => p.type === activeTab)?.plural || "places"} found nearby
+            </p>
+            <p className={`text-[10px] sm:text-xs text-center ${darkMode ? "text-slate-600" : "text-slate-400"}`}>
+              Try expanding your search or check another category
+            </p>
           </div>
         ) : (
-          <div className="space-y-1.5">
+          <div className="space-y-2 sm:space-y-2.5">
             {places.map((place, i) => (
-              <div
+              <PlaceCard
                 key={place.placeId}
-                className={`flex items-start gap-2.5 p-2 rounded-lg ${hoverBg} transition-all`}
-                style={{ animation: `fadeInUp 0.3s ease-out ${i * 50}ms both` }}
-              >
-                <div
-                  className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 text-white text-xs font-bold shadow-sm"
-                  style={{ background: TYPE_ICONS[place.type] }}
-                >
-                  {i + 1}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className={`text-xs font-semibold ${darkMode ? "text-slate-200" : "text-slate-800"} truncate`}>
-                    {place.name}
-                  </p>
-                  <p className={`text-[10px] ${darkMode ? "text-slate-500" : "text-slate-400"} truncate mt-0.5`}>
-                    {place.vicinity}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <StarRating rating={place.rating} darkMode={darkMode} />
-                    {place.openNow !== undefined && (
-                      <span className={`flex items-center gap-1 text-[9px] font-medium ${place.openNow ? "text-green-600" : darkMode ? "text-slate-500" : "text-slate-400"}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${place.openNow ? "bg-green-500" : darkMode ? "bg-slate-600" : "bg-slate-300"}`} />
-                        {place.openNow ? "Open" : "Closed"}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <span
-                  className={`p-1.5 rounded-lg flex-shrink-0 mt-0.5 ${
-                    darkMode ? "text-slate-600" : "text-slate-300"
-                  }`}
-                  title="Place info from Google Maps"
-                >
-                  <ExternalLink size={11} />
-                </span>
-              </div>
+                place={place}
+                index={i}
+                darkMode={darkMode}
+                onDirections={openDirections}
+              />
             ))}
           </div>
         )}
       </div>
+
+      <style jsx global>{`
+        @keyframes cardSlideUp {
+          from { opacity: 0; transform: translateY(16px) scale(0.97); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
     </div>
   )
 }

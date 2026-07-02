@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { MapIcon, X, ChevronRight, Layers, Search, Mountain, Droplets, Waves, Castle, Building2, Trees, Landmark, Tent, Compass, TreePine, Footprints, Rabbit, Gem, ArrowUpDown } from "lucide-react"
 import type { KarnatakaLocation } from "@/lib/types"
 import { CATEGORY_COLORS, CATEGORY_META } from "@/lib/constants"
@@ -40,6 +40,19 @@ export default function LocationSidebar({
   categoryFilter, onCategoryFilter, locations,
 }: LocationSidebarProps) {
   const [showAllCategories, setShowAllCategories] = useState(false)
+  const sideSwipeX = useRef(0)
+  const sideSwipeY = useRef(0)
+
+  function handleSideTouchStart(e: React.TouchEvent) {
+    sideSwipeX.current = e.touches[0].clientX
+    sideSwipeY.current = e.touches[0].clientY
+  }
+
+  function handleSideTouchEnd(e: React.TouchEvent) {
+    const dx = e.changedTouches[0].clientX - sideSwipeX.current
+    const dy = e.changedTouches[0].clientY - sideSwipeY.current
+    if (dx < -60 && Math.abs(dy) < Math.abs(dx) * 1.5) onToggle()
+  }
   const bg = darkMode ? "bg-slate-900/95" : "bg-white/95"
   const border = darkMode ? "border-slate-800" : "border-slate-200/80"
   const textColor = darkMode ? "text-slate-200" : "text-slate-900"
@@ -70,7 +83,9 @@ export default function LocationSidebar({
       </button>
 
       {/* Sidebar */}
-      <div className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} fixed inset-y-0 left-0 z-20 max-md:w-[85vw] w-72 ${bg} backdrop-blur-md border-r ${border} shadow-xl transition-transform duration-300 flex flex-col`}>
+      <div className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} fixed inset-y-0 left-0 z-20 max-md:w-[85vw] w-72 ${bg} backdrop-blur-md border-r ${border} shadow-xl transition-transform duration-300 flex flex-col`}
+        onTouchStart={handleSideTouchStart}
+        onTouchEnd={handleSideTouchEnd}>
         {/* Header */}
         <div className="max-md:p-3 p-4 border-b border-slate-100 flex-shrink-0">
           <div className="flex items-center justify-between mb-3">

@@ -92,9 +92,8 @@ export default function EmergencyServices({
 
   useEffect(() => {
     if (serviceType) {
-      searchEmergencyServices(serviceType)
+      setTimeout(() => searchEmergencyServices(serviceType), 0)
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
   }, [serviceType, searchEmergencyServices])
 
   if (!serviceType) return null

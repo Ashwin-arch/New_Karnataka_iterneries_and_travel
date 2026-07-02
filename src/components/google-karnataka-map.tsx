@@ -1,12 +1,51 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
-import { Loader2, MapIcon, X, Heart, Plus, UserPlus, LogIn, Flame, Shield, Share2, Mic, RefreshCw, Crosshair, Sparkles, AlertTriangle, Route } from "lucide-react"
+import { 
+  Loader2, MapIcon, X, Heart, Star, Plus, UserPlus, LogIn, Flame, Shield, 
+  Share2, Mic, RefreshCw, Crosshair, Sparkles, AlertTriangle, Route,
+  UtensilsCrossed, Hotel, Compass, Landmark, Bus, Pill, CreditCard, 
+  Menu, Smartphone, Clock, MapPin, Search, ChevronRight, Edit,
+  CloudSun, Car, ArrowUpDown, ChevronLeft, Calendar, Eye, Navigation, MessageSquare,
+  Home as HomeIcon, Briefcase, IndianRupee, Mountain, LocateFixed
+} from "lucide-react"
 import { karnatakaLocations } from "@/data/karnataka-locations"
 import type { KarnatakaLocation, Review, User, PendingPlace, MapTypeId, SavedRoute, Report, EmergencyService, EmergencyServiceType } from "@/lib/types"
 import { MAP_STYLES, MAP_STYLES_DARK, API_KEY, CLUSTER_ZOOM, CATEGORY_COLORS } from "@/lib/constants"
 import { createPinSVG, createClusterIcon, genId, LS } from "@/lib/utils"
 import type { NearbyPlaceResult } from "@/components/nearby-places"
+import ImageSlider from "@/components/image-slider"
+
+const TOP_CATEGORIES = [
+  { key: "restaurant", label: "Restaurants", icon: UtensilsCrossed, type: "restaurant" },
+  { key: "hotel", label: "Hotels", icon: Hotel, type: "lodging" },
+  { key: "things_to_do", label: "Things to do", icon: Compass, type: "tourist_attraction" },
+  { key: "museum", label: "Museums", icon: Landmark, type: "museum" },
+  { key: "transit", label: "Transit", icon: Bus, type: "transit_station" },
+  { key: "pharmacy", label: "Pharmacies", icon: Pill, type: "pharmacy" },
+  { key: "atm", label: "ATMs", icon: CreditCard, type: "atm" },
+]
+
+const RECENT_MAPS_HISTORY = [
+  {
+    name: "Deepa Complex",
+    address: "Papareddipalya, Nagarbhavi, Bengaluru, Karnataka",
+    lat: 12.9644,
+    lng: 77.5061,
+  },
+  {
+    name: "Manipal Academy of Higher Education",
+    address: "Govindapura, BSF Campus, Yelahanka, Bengaluru, Karnataka",
+    lat: 13.1009,
+    lng: 77.5963,
+  },
+  {
+    name: "NES office",
+    address: "NES Office Road, Suggappa Layout, Yelahanka, Bengaluru, Karnataka",
+    lat: 13.1009,
+    lng: 77.5963,
+  }
+]
 
 import MapControls from "@/components/map/map-controls"
 import SearchBar from "@/components/map/search-bar"
@@ -17,7 +56,7 @@ import AdminPanel from "@/components/modal/admin-panel"
 import CollectionsModal from "@/components/modal/collections-modal"
 import SubmitPlaceModal from "@/components/modal/submit-place-modal"
 import StreetViewModal from "@/components/modal/street-view-modal"
-import AITripPlannerModal from "@/components/modal/ai-trip-planner-modal"
+import AITripPlannerModal, { TripPlanResult } from "@/components/modal/ai-trip-planner-modal"
 import ReportIssueModal from "@/components/modal/report-issue-modal"
 import EmergencyServices from "@/components/map/emergency-services"
 
@@ -106,6 +145,113 @@ export default function GoogleKarnatakaMap() {
   const [recentSearches, setRecentSearches] = useState<string[]>(() => LS.get<string[]>("recent_searches", []))
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [categoryFilter, setCategoryFilter] = useState("all")
+
+  // --- Category Nearby Search (Google Maps Pills) ---
+  const [activeCategorySearch, setActiveCategorySearch] = useState<string | null>(null)
+  const [categorySearchResults, setCategorySearchResults] = useState<any[]>([])
+  const [categorySearchLoading, setCategorySearchLoading] = useState(false)
+
+  const searchCategoryNearby = useCallback((categoryType: string, label: string) => {
+    if (!mapInstance.current) return
+    
+    // Clear previous results
+    clearNearbyMarkers()
+    closeInfoWindow()
+    
+    const center = mapInstance.current.getCenter()
+    if (!center) return
+
+    setCategorySearchLoading(true)
+    setActiveCategorySearch(label)
+    
+    const dummy = document.createElement("div")
+    const service = new google.maps.places.PlacesService(dummy)
+    
+    service.nearbySearch(
+      {
+        location: center,
+        radius: 5000,
+        type: categoryType,
+      },
+      (results, status) => {
+        setCategorySearchLoading(false)
+        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+          const mapped = results.slice(0, 10).map((p) => ({
+            name: p.name || "",
+            vicinity: p.vicinity || "",
+            rating: p.rating,
+            lat: p.geometry?.location?.lat() || 0,
+            lng: p.geometry?.location?.lng() || 0,
+            placeId: p.place_id || "",
+            type: categoryType,
+          }))
+          setCategorySearchResults(mapped)
+          
+          // Draw markers
+          const info = new google.maps.InfoWindow()
+          const color = categoryType === "restaurant" ? "#f97316" : categoryType === "lodging" ? "#8b5cf6" : "#0ea5e9"
+          
+          results.slice(0, 10).forEach((place, i) => {
+            const marker = new google.maps.Marker({
+              position: { lat: place.geometry?.location?.lat() || 0, lng: place.geometry?.location?.lng() || 0 },
+              map: mapInstance.current,
+              title: place.name,
+              icon: {
+                path: google.maps.SymbolPath.CIRCLE,
+                scale: 10,
+                fillColor: color,
+                fillOpacity: 1,
+                strokeColor: "#fff",
+                strokeWeight: 2
+              },
+              label: { text: String(i + 1), color: "#fff", fontSize: "11px", fontWeight: "bold" },
+            })
+            
+            marker.addListener("click", () => {
+              info.setContent(`<div style="font-family:system-ui,sans-serif;max-width:220px;padding:4px">
+                <strong style="font-size:13px;color:#0f172a">${place.name}</strong>
+                <p style="margin:4px 0;font-size:11px;color:#64748b">${place.vicinity}</p>
+                ${place.rating ? `<p style="margin:2px 0;font-size:11px;color:#f59e0b">★ ${place.rating.toFixed(1)}</p>` : ""}
+              </div>`)
+              info.open(mapInstance.current!, marker)
+            })
+            
+            nearbyMarkersRef.current.push(marker)
+          })
+          
+          setSidebarOpen(true)
+        } else {
+          setCategorySearchResults([])
+          setGpsError(`No ${label.toLowerCase()} found nearby.`)
+          setTimeout(() => setGpsError(null), 3000)
+        }
+      }
+    )
+  }, [])
+
+  const handleClearCategorySearch = useCallback(() => {
+    setActiveCategorySearch(null)
+    setCategorySearchResults([])
+    clearNearbyMarkers()
+    closeInfoWindow()
+  }, [])
+
+  const handleRecentHistoryClick = useCallback((item: typeof RECENT_MAPS_HISTORY[0]) => {
+    if (!mapInstance.current) return
+    mapInstance.current.panTo({ lat: item.lat, lng: item.lng })
+    mapInstance.current.setZoom(15)
+    
+    // Add a temp marker
+    clearNearbyMarkers()
+    const marker = new google.maps.Marker({
+      position: { lat: item.lat, lng: item.lng },
+      map: mapInstance.current,
+      title: item.name,
+      animation: google.maps.Animation.DROP,
+    })
+    nearbyMarkersRef.current.push(marker)
+    setSearchQuery(item.name)
+  }, [])
 
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstance = useRef<google.maps.Map | null>(null)
@@ -718,19 +864,29 @@ export default function GoogleKarnatakaMap() {
   }
 
   // --- AI Trip Planner ---
-  function handlePlanTrip(plan: { places: { name: string; lat: number; lng: number; category: string }[] }) {
+  function handlePlanTrip(plan: TripPlanResult) {
     setShowTripPlanner(false)
-    setPlannedPlaces(plan.places)
-    if (plan.places.length > 0) {
-      const first = plan.places[0]
+    const places = [
+      { name: plan.startName, lat: plan.startLat, lng: plan.startLng, category: "Start" },
+      ...plan.pois.map((poi) => ({
+        name: poi.name,
+        lat: poi.lat,
+        lng: poi.lng,
+        category: poi.type || "Nearby Service",
+      })),
+      { name: plan.destName, lat: plan.destLat, lng: plan.destLng, category: "Destination" },
+    ]
+    setPlannedPlaces(places)
+    if (places.length > 0) {
+      const first = places[0]
       const match = karnatakaLocations.find((l) => l.name === first.name)
       if (match) handlePlaceClick(match)
       else {
         setSearchQuery(first.name)
         geocodeSearch(first.name)
       }
-      const names = plan.places.map((p) => p.name).join(" → ")
-      setGpsError(`Trip planned! ${plan.places.length} stop${plan.places.length > 1 ? "s" : ""}: ${names}`)
+      const names = places.map((p) => p.name).join(" → ")
+      setGpsError(`Trip planned! ${places.length} stop${places.length > 1 ? "s" : ""}: ${names}`)
       setTimeout(() => setGpsError(null), 5000)
     }
   }
@@ -993,21 +1149,450 @@ export default function GoogleKarnatakaMap() {
     <div className={`h-screen w-full overflow-hidden font-sans relative flex ${
       darkMode ? "bg-slate-900" : "bg-slate-100"
     }`}>
-      {/* Sidebar */}
-      <LocationSidebar
-        darkMode={darkMode}
-        sidebarOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
-        selectedLocation={selectedLocation}
-        onPlaceClick={handlePlaceClick}
-        categoryFilter={categoryFilter}
-        onCategoryFilter={setCategoryFilter}
-        locations={karnatakaLocations}
-      />
+      {/* Mobile Sidebar */}
+      <div className="md:hidden">
+        <LocationSidebar
+          darkMode={darkMode}
+          sidebarOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(!sidebarOpen)}
+          selectedLocation={selectedLocation}
+          onPlaceClick={handlePlaceClick}
+          categoryFilter={categoryFilter}
+          onCategoryFilter={setCategoryFilter}
+          locations={karnatakaLocations}
+        />
+      </div>
+
+      {/* Desktop Dual Sidebar Panel (Left Navigation Rail + Main Search/Details Panel) */}
+      <div className="hidden md:flex flex-row h-full z-20 flex-shrink-0">
+        {/* Left Navigation Rail */}
+        <div className={`w-16 h-full flex flex-col items-center justify-between border-r ${
+          darkMode ? "bg-slate-950 border-slate-800 text-slate-400" : "bg-slate-100 border-slate-200 text-slate-500"
+        } py-4`}>
+          <div className="flex flex-col items-center gap-6 w-full">
+            <button onClick={() => setSidebarOpen(!sidebarOpen)}
+              className={`p-2 rounded-xl transition-colors ${darkMode ? "hover:bg-slate-800 text-slate-200" : "hover:bg-slate-200 text-slate-800"}`}>
+              <Menu size={20} />
+            </button>
+            
+            <button onClick={() => setShowTripPlanner(true)}
+              className="group relative flex flex-col items-center gap-1 w-full py-1 text-center">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white shadow-md transform transition-transform group-hover:scale-110">
+                <Sparkles size={18} />
+              </div>
+              <span className="text-[9px] font-medium mt-1">Ask Maps</span>
+            </button>
+
+            <button onClick={() => {
+              if (!user) setShowAuth(true)
+              else setShowCollections(true)
+            }} className="group flex flex-col items-center gap-1 w-full py-1 text-center hover:text-sky-500 transition-colors">
+              <Heart size={18} className={user?.favorites.length ? "fill-red-500 text-red-500" : ""} />
+              <span className="text-[9px] font-medium mt-1">Saved</span>
+            </button>
+
+            <button onClick={() => setShowSavedRoutes(!showSavedRoutes)}
+              className="group flex flex-col items-center gap-1 w-full py-1 text-center hover:text-sky-500 transition-colors">
+              <Clock size={18} />
+              <span className="text-[9px] font-medium mt-1">Recents</span>
+            </button>
+
+            <div className={`w-10 h-px ${darkMode ? "bg-slate-800" : "bg-slate-200"} my-1`} />
+            
+            <button onClick={() => {
+              setSearchQuery("Bengaluru")
+              geocodeSearch("Bengaluru")
+            }} className="flex flex-col items-center gap-1 w-full py-1 text-center hover:text-sky-500 transition-colors">
+              <div className={`w-8 h-8 rounded-lg ${darkMode ? "bg-slate-800" : "bg-slate-200"} flex items-center justify-center text-xs font-bold`}>
+                BLR
+              </div>
+              <span className="text-[9px] font-medium">Bengaluru</span>
+            </button>
+
+            <button onClick={() => {
+              setSearchQuery("Udupi")
+              geocodeSearch("Udupi")
+            }} className="flex flex-col items-center gap-1 w-full py-1 text-center hover:text-sky-500 transition-colors">
+              <div className={`w-8 h-8 rounded-lg ${darkMode ? "bg-slate-800" : "bg-slate-200"} flex items-center justify-center text-xs font-bold`}>
+                UD
+              </div>
+              <span className="text-[9px] font-medium">Udupi</span>
+            </button>
+          </div>
+
+          <div className="flex flex-col items-center gap-4 w-full">
+            <button onClick={() => setDarkMode(!darkMode)}
+              className={`p-2 rounded-xl transition-colors ${darkMode ? "hover:bg-slate-800 text-yellow-400" : "hover:bg-slate-200 text-slate-600"}`}>
+              <CloudSun size={20} />
+            </button>
+            <button className="flex flex-col items-center gap-1 w-full py-1 text-center hover:text-sky-500 transition-colors">
+              <Smartphone size={18} />
+              <span className="text-[9px] font-medium">Get app</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Desktop Sidebar Panel */}
+        {sidebarOpen && (
+          <div className={`w-96 h-full flex flex-col border-r ${
+            darkMode ? "bg-slate-900 border-slate-800 text-slate-200" : "bg-white border-slate-200 text-slate-800"
+          } shadow-xl relative z-10 overflow-hidden`}>
+            {/* Search Bar container inside the sidebar */}
+            <div className={`p-4 border-b ${darkMode ? "border-slate-800 bg-slate-950" : "border-slate-100 bg-slate-50"} flex-shrink-0`}>
+              <SearchBar
+                darkMode={darkMode}
+                locations={karnatakaLocations}
+                recentSearches={recentSearches}
+                onPlaceClick={handlePlaceClick}
+                onGeocodeSearch={geocodeSearch}
+                searchQuery={searchQuery}
+                onSearchQueryChange={setSearchQuery}
+                onSearchQueryClear={() => { setSearchQuery("") }}
+                onVoiceSearch={handleVoiceSearch}
+                isListening={isListening}
+                className="w-full relative top-0 left-0 translate-x-0"
+              />
+            </div>
+
+            {/* Sidebar Body */}
+            <div className="flex-1 overflow-y-auto flex flex-col">
+              {selectedLocation ? (
+                <div className="flex-1 flex flex-col">
+                  {/* Cover Image & Image Slider */}
+                  <div className="relative h-48 w-full bg-slate-205 dark:bg-slate-800 overflow-hidden flex-shrink-0">
+                    <button onClick={handleCloseBottomSheet}
+                      className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors">
+                      <X size={16} />
+                    </button>
+                    {selectedLocation.images && selectedLocation.images.length > 0 ? (
+                      <ImageSlider images={selectedLocation.images} alt={selectedLocation.name} />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-400">
+                        <MapIcon size={40} className="opacity-40" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Title & Rating */}
+                  <div className="p-5 border-b border-slate-100 dark:border-slate-800">
+                    <h3 className="text-xl font-bold">{selectedLocation.name}</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
+                      <MapPin size={14} className="text-sky-500" />
+                      {selectedLocation.place}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <span className="text-sm font-semibold bg-sky-50 dark:bg-sky-950 text-sky-600 dark:text-sky-400 px-2 py-0.5 rounded text-xs capitalize">
+                        {selectedLocation.category}
+                      </span>
+                      <div className="flex items-center gap-0.5 text-amber-500 text-xs font-medium ml-2">
+                        <Star size={14} className="fill-current" />
+                        <span>4.8 (120 reviews)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick Actions Grid */}
+                  <div className="grid grid-cols-4 gap-1 p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                    <button onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${selectedLocation.lat},${selectedLocation.lng}`, "_blank")}
+                      className="flex flex-col items-center gap-1 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-sky-600 dark:text-sky-400">
+                      <Navigation size={18} className="fill-current animate-pulse" />
+                      <span className="text-[10px] font-semibold text-center">Directions</span>
+                    </button>
+                    <button onClick={() => toggleFavorite(selectedLocation.id)}
+                      className={`flex flex-col items-center gap-1 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${
+                        user?.favorites.includes(selectedLocation.id) ? "text-red-500" : "text-slate-500"
+                      }`}>
+                      <Heart size={18} className={user?.favorites.includes(selectedLocation.id) ? "fill-current" : ""} />
+                      <span className="text-[10px] font-semibold text-center">Save</span>
+                    </button>
+                    <button onClick={() => setShowNearby(!showNearby)}
+                      className="flex flex-col items-center gap-1 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500">
+                      <LocateFixed size={18} />
+                      <span className="text-[10px] font-semibold text-center">Nearby</span>
+                    </button>
+                    <button onClick={handleShareLocation}
+                      className="flex flex-col items-center gap-1 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500">
+                      <Share2 size={18} />
+                      <span className="text-[10px] font-semibold text-center">Share</span>
+                    </button>
+                  </div>
+
+                  {/* Description & Details */}
+                  <div className="p-5 border-b border-slate-100 dark:border-slate-800 space-y-4">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">About this place</h4>
+                      <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{selectedLocation.description}</p>
+                    </div>
+                    {selectedLocation.bestTime && (
+                      <div className="flex items-start gap-2.5 text-sm text-slate-600 dark:text-slate-300">
+                        <Clock size={16} className="text-slate-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <span className="font-semibold block text-xs text-slate-400 uppercase">Best Time to Visit</span>
+                          <span>{selectedLocation.bestTime}</span>
+                        </div>
+                      </div>
+                    )}
+                    {selectedLocation.entryFee && (
+                      <div className="flex items-start gap-2.5 text-sm text-slate-600 dark:text-slate-300">
+                        <IndianRupee size={16} className="text-slate-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <span className="font-semibold block text-xs text-slate-400 uppercase">Entry Fee</span>
+                          <span>{selectedLocation.entryFee}</span>
+                        </div>
+                      </div>
+                    )}
+                    {selectedLocation.distanceFromManipal && (
+                      <div className="flex items-start gap-2.5 text-sm text-slate-600 dark:text-slate-300">
+                        <Route size={16} className="text-slate-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <span className="font-semibold block text-xs text-slate-400 uppercase">Distance from Manipal</span>
+                          <span>{selectedLocation.distanceFromManipal}</span>
+                        </div>
+                      </div>
+                    )}
+                    {elevationData !== null && (
+                      <div className="flex items-start gap-2.5 text-sm text-slate-600 dark:text-slate-300">
+                        <Mountain size={16} className="text-slate-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <span className="font-semibold block text-xs text-slate-400 uppercase">Elevation</span>
+                          <span>{Math.round(elevationData)} meters above sea level</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Emergency Services */}
+                  <div className="p-5 border-b border-slate-100 dark:border-slate-800">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Emergency Services</h4>
+                    <div className="flex gap-2">
+                      <button onClick={() => handleShowEmergencyServices("hospital")}
+                        className="flex-1 px-3 py-2 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 rounded-xl text-xs font-semibold hover:bg-red-100 transition-colors flex items-center justify-center gap-1.5 border border-red-100 dark:border-red-900/30">
+                        <Shield size={14} /> Hospital
+                      </button>
+                      <button onClick={() => handleShowEmergencyServices("police")}
+                        className="flex-1 px-3 py-2 bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-semibold hover:bg-blue-100 transition-colors flex items-center justify-center gap-1.5 border border-blue-100 dark:border-blue-900/30">
+                        <Shield size={14} /> Police
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Reviews section inside sidebar */}
+                  <div className="p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-sm font-bold">Reviews ({placeReviews.length})</h4>
+                      <button onClick={() => setShowReviews(!showReviews)}
+                        className="text-xs text-sky-600 dark:text-sky-400 font-semibold hover:underline">
+                        {showReviews ? "Hide Reviews" : "Write Review"}
+                      </button>
+                    </div>
+
+                    {showReviews && (
+                      <div className="mb-4 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-100 dark:border-slate-850">
+                        <p className="text-xs font-bold mb-2">Write your review</p>
+                        <div className="flex gap-1 mb-2">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button key={star} onClick={() => setNewReview({ ...newReview, rating: star })}
+                              className={`text-base ${newReview.rating >= star ? "text-amber-400" : "text-slate-300"}`}>
+                              ★
+                            </button>
+                          ))}
+                        </div>
+                        <textarea value={newReview.text} onChange={(e) => setNewReview({ ...newReview, text: e.target.value })}
+                          placeholder="Share your experience..." className="w-full text-xs p-2 border border-slate-200 dark:border-slate-700 rounded-xl outline-none bg-transparent" rows={3} />
+                        <button onClick={addReview}
+                          className="mt-2 w-full py-1.5 bg-sky-600 text-white rounded-lg text-xs font-bold hover:bg-sky-500 transition-colors">
+                          Submit Review
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="space-y-3">
+                      {placeReviews.map((rev) => (
+                        <div key={rev.id} className="text-xs border-b border-slate-50 dark:border-slate-855 pb-3 last:border-b-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-bold">{rev.userName}</span>
+                            <span className="text-[10px] text-slate-400">{rev.date}</span>
+                          </div>
+                          <div className="text-amber-500 mb-1">{"★".repeat(rev.rating)}</div>
+                          <p className="text-slate-600 dark:text-slate-300 leading-relaxed">{rev.text}</p>
+                        </div>
+                      ))}
+                      {placeReviews.length === 0 && (
+                        <p className="text-xs text-center text-slate-400 py-4">No reviews yet. Be the first to add one!</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : activeCategorySearch ? (
+                /* Case 2: Category Search Results */
+                <div className="flex-1 flex flex-col">
+                  <div className="p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold">Nearby {activeCategorySearch}</h3>
+                      <p className="text-xs text-slate-400 mt-0.5">{categorySearchResults.length} results found</p>
+                    </div>
+                    <button onClick={handleClearCategorySearch}
+                      className="px-2.5 py-1 bg-slate-250 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg text-xs font-semibold transition-colors">
+                      Clear
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                    {categorySearchResults.map((place, i) => (
+                      <div key={place.placeId} onClick={() => {
+                        if (mapInstance.current) {
+                          mapInstance.current.panTo({ lat: place.lat, lng: place.lng })
+                          mapInstance.current.setZoom(16)
+                        }
+                      }} className={`p-3.5 rounded-2xl border ${
+                        darkMode ? "bg-slate-800/50 border-slate-700 hover:bg-slate-800" : "bg-white border-slate-100 hover:bg-slate-50"
+                      } shadow-sm cursor-pointer transition-colors flex gap-3`}>
+                        <span className="w-6 h-6 rounded-full bg-sky-600 text-white flex items-center justify-center text-[10px] font-bold flex-shrink-0">
+                          {i + 1}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-sm font-bold truncate">{place.name}</h4>
+                          <p className="text-xs text-slate-500 truncate mt-0.5">{place.vicinity}</p>
+                          {place.rating && (
+                            <p className="text-[10px] text-amber-500 font-medium mt-1 flex items-center gap-0.5">
+                              ★ {place.rating.toFixed(1)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {categorySearchLoading && (
+                      <div className="flex flex-col items-center justify-center py-12 gap-2 text-slate-400">
+                        <Loader2 size={24} className="animate-spin text-sky-500" />
+                        <span className="text-xs">Searching...</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* Case 3: Default List (Work, Home, Recents, and Weather/Traffic Card) */
+                <div className="flex-1 flex flex-col justify-between">
+                  <div>
+                    {/* Work & Home Shortcuts */}
+                    <div className={`border-b ${darkMode ? "border-slate-800" : "border-slate-100"}`}>
+                      {/* Work */}
+                      <div className={`flex items-center justify-between px-5 py-4 border-b ${
+                        darkMode ? "border-slate-800/50" : "border-slate-55"
+                      }`}>
+                        <div className="flex items-start gap-3.5 min-w-0">
+                          <div className={`p-2 rounded-xl ${darkMode ? "bg-slate-800 text-sky-400" : "bg-sky-50 text-sky-600"}`}>
+                            <Briefcase size={16} />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="font-semibold block text-sm">Work</span>
+                            <span className="text-xs text-slate-400 truncate block">Anegudde, Karnataka</span>
+                          </div>
+                        </div>
+                        <button className="text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline">
+                          Edit
+                        </button>
+                      </div>
+                      {/* Home */}
+                      <div className="flex items-center justify-between px-5 py-4">
+                        <div className="flex items-start gap-3.5 min-w-0">
+                          <div className={`p-2 rounded-xl ${darkMode ? "bg-slate-800 text-sky-400" : "bg-sky-50 text-sky-600"}`}>
+                            <HomeIcon size={16} />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="font-semibold block text-sm">Home</span>
+                            <span className="text-xs text-slate-400 truncate block text-sky-500 cursor-pointer hover:underline">
+                              Set location
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Recent History List */}
+                    <div className="p-5">
+                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Recent history</h4>
+                      <div className="space-y-4">
+                        {RECENT_MAPS_HISTORY.map((item, idx) => (
+                          <button key={idx} onClick={() => handleRecentHistoryClick(item)}
+                            className="w-full flex items-start gap-3.5 text-left group">
+                            <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex-shrink-0 group-hover:bg-sky-50 group-hover:text-sky-600 dark:group-hover:bg-sky-955 transition-colors">
+                              <Clock size={16} />
+                            </div>
+                            <div className="min-w-0 flex-1 border-b border-slate-50 dark:border-slate-800/50 pb-3">
+                              <span className="font-semibold text-sm block group-hover:text-sky-600 transition-colors truncate">
+                                {item.name}
+                              </span>
+                              <span className="text-xs text-slate-400 truncate block mt-0.5">
+                                {item.address}
+                              </span>
+                              {idx === 1 && (
+                                <span className="text-[10px] text-emerald-500 font-medium block mt-1">Open · Closes 5 pm</span>
+                              )}
+                              {idx === 2 && (
+                                <span className="text-[10px] text-emerald-500 font-medium block mt-1">Open · Closes 9 pm</span>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                        <button className="w-full py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-300 hover:bg-slate-200 transition-colors text-center mt-2">
+                          More from recent history
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Weather & Traffic Card at the bottom of the sidebar */}
+                  <div className="p-5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex-shrink-0">
+                    <button onClick={toggleTraffic} className="w-full text-left bg-white dark:bg-slate-850 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow flex items-start justify-between">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-sm text-slate-800 dark:text-slate-100">Nagarbhavi</span>
+                          <span className="text-sm font-semibold text-slate-500">26°</span>
+                          <CloudSun size={16} className="text-yellow-500" />
+                        </div>
+                        <div className="flex items-center gap-2 text-xs font-medium text-red-500">
+                          <Car size={14} className="fill-current animate-bounce" />
+                          <span>Heavy traffic in this area</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 leading-none">Slower than usual · Click to toggle traffic layer</p>
+                      </div>
+                      <ChevronRight size={16} className="text-slate-300 mt-1" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Map container */}
       <div className={`flex-1 relative overflow-hidden`}>
         <div ref={mapRef} className="absolute inset-0" />
+
+        {/* Horizontal Category Pills */}
+        <div className="absolute top-4 left-4 z-20 flex gap-2 overflow-x-auto max-w-[calc(100vw-2rem)] md:max-w-[60vw] pb-2 scrollbar-none pr-12"
+          style={{ scrollbarWidth: "none" }}>
+          {TOP_CATEGORIES.map((cat) => {
+            const Icon = cat.icon
+            const active = activeCategorySearch === cat.label
+            return (
+              <button
+                key={cat.key}
+                onClick={() => searchCategoryNearby(cat.type, cat.label)}
+                className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow-md border transition-all ${
+                  active
+                    ? "bg-sky-600 text-white border-sky-600"
+                    : darkMode
+                      ? "bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200"
+                      : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700"
+                }`}
+              >
+                <Icon size={12} className={active ? "text-white" : darkMode ? "text-sky-400" : "text-sky-600"} />
+                <span>{cat.label}</span>
+              </button>
+            )
+          })}
+        </div>
 
         {/* Loading overlay */}
         {!mapsLoaded && !loadError && (
@@ -1153,27 +1738,44 @@ export default function GoogleKarnatakaMap() {
           </div>
         )}
 
-        {/* Search bar */}
-        <SearchBar
-          darkMode={darkMode}
-          locations={karnatakaLocations}
-          recentSearches={recentSearches}
-          onPlaceClick={handlePlaceClick}
-          onGeocodeSearch={geocodeSearch}
-          searchQuery={searchQuery}
-          onSearchQueryChange={setSearchQuery}
-          onSearchQueryClear={() => { setSearchQuery("") }}
-          onVoiceSearch={handleVoiceSearch}
-          isListening={isListening}
-        />
+        {/* Mobile Search bar */}
+        <div className="md:hidden">
+          <SearchBar
+            darkMode={darkMode}
+            locations={karnatakaLocations}
+            recentSearches={recentSearches}
+            onPlaceClick={handlePlaceClick}
+            onGeocodeSearch={geocodeSearch}
+            searchQuery={searchQuery}
+            onSearchQueryChange={setSearchQuery}
+            onSearchQueryClear={() => { setSearchQuery("") }}
+            onVoiceSearch={handleVoiceSearch}
+            isListening={isListening}
+          />
+        </div>
 
         {/* Map controls */}
         <MapControls
-          mapInstance={mapInstance.current}
           mapType={mapType}
           onMapTypeChange={setMapType}
           onCurrentLocation={handleCurrentLocation}
           onFitBounds={fitMapBounds}
+          onZoomIn={() => {
+            if (mapInstance.current) {
+              const currentZoom = mapInstance.current.getZoom()
+              if (currentZoom !== undefined) {
+                mapInstance.current.setZoom(currentZoom + 1)
+              }
+            }
+          }}
+          onZoomOut={() => {
+            if (mapInstance.current) {
+              const currentZoom = mapInstance.current.getZoom()
+              if (currentZoom !== undefined) {
+                mapInstance.current.setZoom(currentZoom - 1)
+              }
+            }
+          }}
           showHeatmap={showHeatmap}
           onToggleHeatmap={toggleHeatmap}
           showTraffic={showTraffic}
@@ -1291,7 +1893,6 @@ export default function GoogleKarnatakaMap() {
           <PlaceBottomSheet
             darkMode={darkMode}
             selectedLocation={selectedLocation}
-            locations={karnatakaLocations}
             reviews={reviews}
             user={user}
             elevationData={elevationData}

@@ -5,11 +5,12 @@ import { MAP_TYPES } from "@/lib/constants"
 import type { MapTypeId } from "@/lib/types"
 
 interface MapControlsProps {
-  mapInstance: google.maps.Map | null
   mapType: MapTypeId
   onMapTypeChange: (type: MapTypeId) => void
   onCurrentLocation: () => void
   onFitBounds: () => void
+  onZoomIn: () => void
+  onZoomOut: () => void
   showHeatmap: boolean
   onToggleHeatmap: () => void
   showTraffic: boolean
@@ -27,8 +28,8 @@ interface MapControlsProps {
 }
 
 export default function MapControls({
-  mapInstance, mapType, onMapTypeChange, onCurrentLocation,
-  onFitBounds, showTraffic, onToggleTraffic,
+  mapType, onMapTypeChange, onCurrentLocation,
+  onFitBounds, onZoomIn, onZoomOut, showTraffic, onToggleTraffic,
   showTransit, onToggleTransit,
   isFullscreen, onToggleFullscreen, darkMode, onToggleDarkMode,
   isTracking, locationAccuracy,
@@ -52,10 +53,10 @@ export default function MapControls({
       <div className={`max-md:w-10 flex flex-col rounded-xl shadow-lg border overflow-hidden ${
         darkMode ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200/80"
       }`}>
-        <button onClick={() => mapInstance?.setZoom((mapInstance.getZoom() || 7) + 1)}
+        <button onClick={onZoomIn}
           className={`flex items-center justify-center max-md:w-10 max-md:h-10 w-11 h-11 transition-colors border-b ${darkMode ? "border-slate-700 text-slate-300 hover:bg-slate-700" : "border-slate-100 text-slate-600 hover:bg-slate-50"}`}
           title="Zoom in" aria-label="Zoom in"><ZoomIn size={20} /></button>
-        <button onClick={() => mapInstance?.setZoom((mapInstance.getZoom() || 7) - 1)}
+        <button onClick={onZoomOut}
           className={`flex items-center justify-center max-md:w-10 max-md:h-10 w-11 h-11 transition-colors ${darkMode ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-slate-50"}`}
           title="Zoom out" aria-label="Zoom out"><ZoomOut size={20} /></button>
       </div>

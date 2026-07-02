@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { Search, X, Clock, ChevronLeft, MapPin, Loader2, Mic } from "lucide-react"
+import { Search, X, Clock, ChevronLeft, MapPin, Loader2, Mic, Fuel } from "lucide-react"
 import type { KarnatakaLocation } from "@/lib/types"
 import { CATEGORY_COLORS } from "@/lib/constants"
 
@@ -16,6 +16,10 @@ interface SearchBarProps {
   onSearchQueryClear: () => void
   onVoiceSearch: () => void
   isListening: boolean
+  onPetrolSearch?: () => void
+  petrolSearchLoading?: boolean
+  showPetrol?: boolean
+  className?: string
 }
 
 interface AutocompletePrediction {
@@ -29,6 +33,8 @@ export default function SearchBar({
   darkMode, locations, recentSearches, onPlaceClick, onGeocodeSearch,
   searchQuery, onSearchQueryChange, onSearchQueryClear,
   onVoiceSearch, isListening,
+  onPetrolSearch, petrolSearchLoading, showPetrol,
+  className,
 }: SearchBarProps) {
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [autocompleteResults, setAutocompleteResults] = useState<AutocompletePrediction[]>([])
@@ -104,7 +110,7 @@ export default function SearchBar({
   ).slice(0, 5)
 
   return (
-    <div className="absolute max-md:top-16 top-4 left-1/2 -translate-x-1/2 z-20 w-[95%] max-w-xl">
+    <div className={className || "absolute max-md:top-16 top-4 left-1/2 -translate-x-1/2 z-20 w-[95%] max-w-xl"}>
       <div className="relative">
         <div className={`flex items-center ${bgColor} rounded-full shadow-lg ${borderColor} border overflow-hidden transition-shadow focus-within:shadow-xl`}>
           <Search size={18} className="text-slate-400 ml-4 flex-shrink-0" />
@@ -139,6 +145,24 @@ export default function SearchBar({
             <button onClick={() => { onSearchQueryClear(); setAutocompleteResults([]) }}
               className="p-2 mr-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100/50">
               <X size={16} />
+            </button>
+          )}
+          {onPetrolSearch && (
+            <button onClick={onPetrolSearch} disabled={petrolSearchLoading}
+              className={`flex items-center gap-1.5 px-3 py-1.5 mr-1.5 rounded-full text-xs font-semibold transition-all ${
+                petrolSearchLoading
+                  ? "text-green-600 bg-green-50"
+                  : showPetrol
+                    ? "text-white bg-green-600 shadow-sm shadow-green-600/30"
+                    : "text-slate-400 hover:text-green-600 hover:bg-green-50 hover:shadow-sm"
+              }`}
+              title="Find petrol pumps across Karnataka">
+              {petrolSearchLoading ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <Fuel size={13} />
+              )}
+              <span className="hidden sm:inline">Petrol</span>
             </button>
           )}
         </div>
