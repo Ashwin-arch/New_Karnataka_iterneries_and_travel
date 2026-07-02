@@ -10,12 +10,17 @@ export async function POST(req: NextRequest) {
   try {
     await connectDB();
     const body = await req.json();
+    
     const error = validateLogin(body);
     if (error) return apiError(error, 400);
 
     const { email, password } = body;
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    // Upgraded: Case-insensitive search to prevent uppercase/lowercase mismatches
+    const user = await User.findOne({ 
+      email: { $regex: new RegExp(`^${email}$`, 'i') } 
+    });
+    
     if (!user) return apiError("Invalid email or password", 401);
     if (!user.isActive) return apiError("Account has been deactivated", 403);
 
